@@ -6,7 +6,7 @@ class Reassembler
 {
 public:
   // Construct Reassembler to write into given ByteStream.
-  explicit Reassembler( ByteStream&& output ) : output_( std::move( output ) ) {}
+  explicit Reassembler( ByteStream&& output ) : output_( std::move( output ) ), list_(), bytes_pending_(0), base_position_(0) {}
 
   /*
    * Insert a new substring to be reassembled into a ByteStream.
@@ -42,4 +42,16 @@ public:
 
 private:
   ByteStream output_; // the Reassembler writes to this ByteStream
+  class Node {
+  public:
+    explicit Node(int len_=0, uint64_t idx_=0, std::string content_=std::string(), bool is_final_=false)
+      : len(len_), idx(idx_), content(content_), is_final(is_final_) {}
+    int len;
+    uint64_t idx;
+    std::string content;
+    bool is_final;
+  };
+  std::list<Node> list_;
+  uint64_t bytes_pending_;
+  uint64_t base_position_;
 };
