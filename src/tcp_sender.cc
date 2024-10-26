@@ -4,6 +4,9 @@
 
 using namespace std;
 
+// #define TCPSENDER_DEBUG
+
+#ifdef TCPSENDER_DEBUG
 string _Out( string s )
 {
   string ans = "";
@@ -12,6 +15,7 @@ string _Out( string s )
   }
   return ans;
 }
+#endif
 
 uint64_t TCPSender::sequence_numbers_in_flight() const
 {
@@ -27,15 +31,21 @@ uint64_t TCPSender::consecutive_retransmissions() const
 
 void TCPSender::push( const TransmitFunction& transmit )
 {
+#ifdef TCPSENDER_DEBUG
     cout << endl << "-------------------------------" << endl;
     cout << "[PUSH CALLED]" << endl;
+#endif
 
     // Your code here.
     // (void)transmit;
     int modified_window_size_ = window_size_ == 0 ? 1 : window_size_;
     while(modified_window_size_ > n_outstanding_) {
+    
+    #ifdef TCPSENDER_DEBUG
         cout << "--------" << endl;
         cout << "window_size = " << window_size_  << "(" << modified_window_size_ << ")" << ", n_outstanding = " << n_outstanding_ << endl;
+    #endif
+
         // if(reader().bytes_buffered() == 0) {
         //     return ;
         // }
@@ -72,8 +82,10 @@ void TCPSender::push( const TransmitFunction& transmit )
             return ;
         }
 
+    #ifdef TCPSENDER_DEBUG
         cout << "msg seqno=" << msg.seqno.get_Raw_Value_() << ", sequence_length=" << msg.sequence_length() << endl; 
         cout << "    " << "SYN=" << msg.SYN << ", FIN=" << msg.FIN << ", RST=" << msg.RST << "; " << _Out(msg.payload) << endl;
+    #endif
 
         transmit(msg);
 
@@ -83,17 +95,21 @@ void TCPSender::push( const TransmitFunction& transmit )
         if(!ticker_.is_running()) {
             ticker_.start();
         }
-
+        
+        outstanding_messages_.push_back(msg);
         if(window_size_ == 0) {
-            continue;
+            no_RTO_backoff_.insert(msg.seqno.get_Raw_Value_());
         }
         
-        outstanding_messages_.push(msg);
-        
-        // for(auto message: outstanding_messages_) {
-        //     cout << "Message: " << message.SYN <<" "<< message.FIN <<" "<< message.RST <<" "<< message.ackno.get_Raw_Value_() <<" "<< Out_(message.payload) << endl;
-        // }
     }
+
+#ifdef TCPSENDER_DEBUG
+    cout << "<Outstanding Messages> " << outstanding_messages_.size() << " in total." << endl;
+    for(auto message: outstanding_messages_) {
+        cout << "Message: SYN=" << message.SYN <<" ,FIN="<< message.FIN <<" ,RST="<< message.RST <<" ,seqno="<< message.seqno.get_Raw_Value_() <<"; "<< _Out(message.payload) << endl;
+    }
+    cout << "===============================" << endl;
+#endif
 }
 
 TCPSenderMessage TCPSender::make_empty_message() const
@@ -102,7 +118,7 @@ TCPSenderMessage TCPSender::make_empty_message() const
     TCPSenderMessage msg;
     msg.SYN = false;
     msg.FIN = false;
-    msg.RST = false;
+    msg.RST = input_.has_error();
     msg.payload = "";
     msg.seqno = Wrap32::wrap(next_seqno_, Wrap32(isn_));
     return msg;
@@ -110,10 +126,12 @@ TCPSenderMessage TCPSender::make_empty_message() const
 
 void TCPSender::receive( const TCPReceiverMessage& msg )
 {
+#ifdef TCPSENDER_DEBUG
     cout << endl << "-------------------------------" << endl;
     cout << "[RECEIVE CALLED]" << endl;
-
     cout << "RST = " << msg.RST << ", ackno = " << msg.ackno->get_Raw_Value_() << endl;
+    cout << "===============================" << endl;
+#endif
 
     // Your code here.
     // (void)msg;
@@ -137,7 +155,10 @@ void TCPSender::receive( const TCPReceiverMessage& msg )
         }
         acked_seqno_ += cur_length;
         n_outstanding_ -= cur_length;
-        outstanding_messages_.pop();
+        if(no_RTO_backoff_.find(outstanding_messages_.front().seqno.get_Raw_Value_()) != no_RTO_backoff_.end()) {
+            no_RTO_backoff_.erase(outstanding_messages_.front().seqno.get_Raw_Value_());
+        }
+        outstanding_messages_.pop_front();
         hav_ack = true;
     }
 
@@ -159,19 +180,32 @@ void TCPSender::tick( uint64_t ms_since_last_tick, const TransmitFunction& trans
     // (void)transmit;
     // (void)initial_RTO_ms_;
 
+#ifdef TCPSENDER_DEBUG
     cout << "[TICK] " << ms_since_last_tick << endl;
+#endif
 
     ticker_.tick(ms_since_last_tick);
+
+#ifdef TCPSENDER_DEBUG
     cout << "is_expired() = " << ticker_.is_expired() << endl;
+#endif
+
     if(!ticker_.is_expired()) {
         return ;
     }
     if(n_outstanding_ == 0) {
         return ;
     }
+
+#ifdef TCPSENDER_DEBUG
     cout << "ReSend: " << outstanding_messages_.front().seqno.get_Raw_Value_() << endl;
+#endif
+
     transmit(outstanding_messages_.front());
     n_retransmission_ += 1;
-    ticker_.exponential_backoff();
+    
+    if(no_RTO_backoff_.find(outstanding_messages_.front().seqno.get_Raw_Value_()) == no_RTO_backoff_.end()) {
+        ticker_.exponential_backoff();
+    }
     ticker_.reset();
 }

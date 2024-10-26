@@ -10,6 +10,7 @@
 #include <memory>
 #include <optional>
 #include <queue>
+#include <set>
 
 class Ticker {
 public:
@@ -38,11 +39,11 @@ public:
     }
     void tick(uint64_t ms_since_last_tick) {
         clock_ += ms_since_last_tick;
-        std::cout << "    ticked: clock_ = " << clock_  << ", RTO_ms_ = " << RTO_ms_ << std::endl;
+        // std::cout << "    ticked: clock_ = " << clock_  << ", RTO_ms_ = " << RTO_ms_ << std::endl;
     }
     void exponential_backoff() {
         RTO_ms_ <<= 1;
-        std::cout << "    exponential backoff, RTO_ms = " << RTO_ms_ << std::endl;
+        // std::cout << "    exponential backoff, RTO_ms = " << RTO_ms_ << std::endl;
     }
     bool is_running() {
         return is_running_;
@@ -64,9 +65,10 @@ public:
     TCPSender( ByteStream&& input, Wrap32 isn, uint64_t initial_RTO_ms )
         : input_( std::move( input ) ), isn_( isn ), initial_RTO_ms_( initial_RTO_ms ),
         ticker_(initial_RTO_ms), SYN_sent_(false), FIN_sent_(false), outstanding_messages_(), n_outstanding_(0), n_retransmission_(0),
-        window_size_(1), next_seqno_(0), acked_seqno_(0)
+        window_size_(1), next_seqno_(0), acked_seqno_(0),
+        no_RTO_backoff_()
     {
-        std::cout << "initial_RTO_ms = " << initial_RTO_ms_ << std::endl;
+        // std::cout << "initial_RTO_ms = " << initial_RTO_ms_ << std::endl;
     }
 
     /* Generate an empty TCPSenderMessage */
@@ -103,7 +105,7 @@ private:
     bool SYN_sent_;
     bool FIN_sent_;
 
-    std::queue<TCPSenderMessage> outstanding_messages_;
+    std::deque<TCPSenderMessage> outstanding_messages_;
 
     int n_outstanding_;
     int n_retransmission_;
@@ -111,4 +113,6 @@ private:
     uint16_t window_size_;
     uint64_t next_seqno_;
     uint64_t acked_seqno_;
+
+    std::set<uint64_t> no_RTO_backoff_;
 };
