@@ -4,9 +4,9 @@
 #include <cstdint>
 #include <deque>
 #include <iostream>
+#include <list>
 #include <string>
 #include <string_view>
-#include <list>
 
 class Reader;
 class Writer;
