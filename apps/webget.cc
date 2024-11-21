@@ -1,4 +1,5 @@
 #include "socket.hh"
+#include "tcp_minnow_socket.hh"
 
 #include <cstdlib>
 #include <iostream>
@@ -14,7 +15,8 @@ void get_URL( const string& host, const string& path )
   // assert(0);
 
   Address addr = Address( host, "http" );
-  TCPSocket tcp_socket = TCPSocket();
+  // TCPSocket tcp_socket = TCPSocket();
+  CS144TCPSocket tcp_socket = CS144TCPSocket();
   tcp_socket.connect( addr );
 
   string message = "";
