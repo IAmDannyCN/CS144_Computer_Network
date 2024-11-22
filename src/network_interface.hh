@@ -1,6 +1,9 @@
 #pragma once
 
+#include <cassert>
 #include <queue>
+#include <set>
+#include <unordered_map>
 
 #include "address.hh"
 #include "ethernet_frame.hh"
@@ -81,4 +84,16 @@ private:
 
   // Datagrams that have been received
   std::queue<InternetDatagram> datagrams_received_ {};
+
+  // My Own
+  class Clock
+  {
+  public:
+    size_t _time {};
+    void tick( const size_t ms_since_last_tick ) { _time += ms_since_last_tick; }
+    bool expired( size_t arp_time, size_t expire_time ) { return _time > arp_time + expire_time; }
+  } _clk {};
+  std::unordered_map<uint32_t, std::pair<EthernetAddress, size_t>> _arp_cache {};
+  std::unordered_map<uint32_t, std::vector<InternetDatagram>> _dgram_waiting {};
+  std::unordered_map<uint32_t, size_t> _arping_ipv4 {};
 };
