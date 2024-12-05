@@ -1,5 +1,6 @@
 #pragma once
 
+#include <map>
 #include <memory>
 #include <optional>
 
@@ -33,6 +34,26 @@ public:
   void route();
 
 private:
+  class RoutingRecord
+  {
+  public:
+    RoutingRecord( uint32_t _route_prefix,
+                   uint32_t _prefix_length,
+                   std::optional<Address> _next_hop,
+                   size_t _interface_num )
+      : route_prefix( _route_prefix )
+      , prefix_length( _prefix_length )
+      , next_hop( _next_hop )
+      , interface_num( _interface_num )
+    {}
+
+    uint32_t route_prefix;
+    uint32_t prefix_length;
+    std::optional<Address> next_hop;
+    size_t interface_num;
+  };
+  std::vector<RoutingRecord> _routing_table {};
+
   // The router's collection of network interfaces
   std::vector<std::shared_ptr<NetworkInterface>> _interfaces {};
 };
